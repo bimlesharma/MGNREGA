@@ -1,0 +1,92 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+
+interface District {
+  districtCode: string;
+  districtName: string;
+  stateCode: string;
+  stateName: string;
+}
+
+interface DistrictsResponse {
+  districts: District[];
+}
+
+interface DistrictSelectorProps {
+  onSelect: (districtCode: string) => void;
+  selectedDistrict: string | null;
+}
+
+export default function DistrictSelector({ onSelect, selectedDistrict }: DistrictSelectorProps) {
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedState, setSelectedState] = useState<string>('');
+
+  useEffect(() => {
+    fetchDistricts();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fetchDistricts = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/districts');
+      if (!response.ok) throw new Error('Failed to fetch districts');
+      const data: DistrictsResponse = await response.json();
+      setDistricts(data.districts);
+      
+      // Group by state
+      const states = Array.from(new Set(data.districts.map((d) => d.stateCode)));
+      if (states.length > 0 && !selectedState) {
+        setSelectedState(states[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching districts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredDistricts = selectedState
+    ? districts.filter((d) => d.stateCode === selectedState)
+    : districts;
+
+  const states = Array.from(new Set(districts.map((d) => d.stateCode)));
+
+  if (loading) {
+    return <div className="select">Loading districts...</div>;
+  }
+
+  return (
+    <div>
+      <select
+        className="select"
+        value={selectedState}
+        onChange={(e) => setSelectedState(e.target.value)}
+        style={{ marginBottom: '0.5rem' }}
+      >
+        {states.map((stateCode) => {
+          const state = districts.find((d) => d.stateCode === stateCode);
+          return (
+            <option key={stateCode} value={stateCode}>
+              {state?.stateName || stateCode}
+            </option>
+          );
+        })}
+      </select>
+      <select
+        className="select"
+        value={selectedDistrict || ''}
+        onChange={(e) => onSelect(e.target.value)}
+      >
+        <option value="">Select a district...</option>
+        {filteredDistricts.map((district) => (
+          <option key={district.districtCode} value={district.districtCode}>
+            {district.districtName}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
